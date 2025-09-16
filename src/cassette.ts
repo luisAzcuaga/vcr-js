@@ -53,7 +53,17 @@ export class Cassette {
 
     this.interceptor.on('request', async ({ request, requestId }) => {
       this.allRequests.set(requestId, request.clone());
-      
+
+      // Handle CONNECT requests for proxy tunneling
+      if (request.method === 'CONNECT') {
+        return request.respondWith(
+          new Response(null, {
+            status: 200,
+            statusText: 'Connection Established'
+          })
+        );
+      }
+
       const isPassThrough = await this.isPassThrough(request);
       if (isPassThrough) {
         return;
