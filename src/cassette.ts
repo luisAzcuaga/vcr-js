@@ -64,8 +64,8 @@ export class Cassette {
         console.log(`[VCR] Target: ${targetHost}`);
         // Track this proxy tunnel for future requests
         this.proxyTunnels.add(targetHost);
-        // Use passthrough() to let the interceptor handle cleanup properly
-        return request.passthrough();
+        // Let the request pass through without VCR interference
+        return;
       }
 
       // Check if this request is going through an established proxy tunnel
