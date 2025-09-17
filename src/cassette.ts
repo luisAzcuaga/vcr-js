@@ -54,14 +54,11 @@ export class Cassette {
     this.interceptor.apply();
 
     this.interceptor.on('request', async ({ request, requestId }) => {
-      console.log(`[VCR] ${request.method} ${request.url}`);
       this.allRequests.set(requestId, request.clone());
 
       // Handle CONNECT requests for proxy tunneling - always pass through
       if (request.method === 'CONNECT') {
         const targetHost = request.headers.get('host') || 'unknown';
-        console.log(`[VCR] CONNECT request detected - passing through to proxy`);
-        console.log(`[VCR] Target: ${targetHost}`);
         // Track this proxy tunnel for future requests
         this.proxyTunnels.add(targetHost);
         // Let the request pass through without VCR interference
@@ -73,7 +70,6 @@ export class Cassette {
       const requestHost = `${requestUrl.hostname}:${requestUrl.port}`;
 
       if (this.proxyTunnels.has(requestHost)) {
-        console.log(`[VCR] Request to proxy tunnel host (${requestHost}) - passing through`);
         return;
       }
 
@@ -82,7 +78,6 @@ export class Cassette {
       const hasProxyConnection = request.headers.has('proxy-connection');
 
       if (hasProxyAuth || hasProxyConnection) {
-        console.log(`[VCR] Proxy request detected (headers) - passing through`);
         return;
       }
 
@@ -116,6 +111,14 @@ export class Cassette {
       if (this.playbackRequests.has(requestId)) {
         console.log(`[VCR] Response for playback request - not recording`);
         this.playbackRequests.delete(requestId);
+        return;
+      }
+
+      // Check if this request was to a proxy tunnel host
+      const reqUrl = new URL(req.url);
+      const reqHost = `${reqUrl.hostname}:${reqUrl.port}`;
+
+      if (this.proxyTunnels.has(reqHost)) {
         return;
       }
 
