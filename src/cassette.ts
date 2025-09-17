@@ -22,6 +22,7 @@ export class Cassette {
   private newInteractions: Set<HttpInteraction> = new Set<HttpInteraction>();
   private readonly allRequests: Map<string, Request> = new Map<string, Request>();
   private readonly playbackRequests: Set<string> = new Set<string>();
+  private readonly proxyTunnels: Set<string> = new Set<string>();
 
   constructor(
     private readonly storage: ICassetteStorage,
@@ -58,10 +59,22 @@ export class Cassette {
 
       // Handle CONNECT requests for proxy tunneling - always pass through
       if (request.method === 'CONNECT') {
+        const targetHost = request.headers.get('host') || 'unknown';
         console.log(`[VCR] CONNECT request detected - passing through to proxy`);
-        console.log(`[VCR] Target: ${request.headers.get('host') || 'unknown'}`);
+        console.log(`[VCR] Target: ${targetHost}`);
+        // Track this proxy tunnel for future requests
+        this.proxyTunnels.add(targetHost);
         // Use passthrough() to let the interceptor handle cleanup properly
         return request.passthrough();
+      }
+
+      // Check if this request is going through an established proxy tunnel
+      const requestUrl = new URL(request.url);
+      const requestHost = `${requestUrl.hostname}:${requestUrl.port}`;
+
+      if (this.proxyTunnels.has(requestHost)) {
+        console.log(`[VCR] Request to proxy tunnel host (${requestHost}) - passing through`);
+        return;
       }
 
       // Also detect proxy requests by looking for proxy-related headers
@@ -70,7 +83,7 @@ export class Cassette {
 
       if (hasProxyAuth || hasProxyConnection) {
         console.log(`[VCR] Proxy request detected (headers) - passing through`);
-        return request.passthrough();
+        return;
       }
 
       const isPassThrough = await this.isPassThrough(request);
