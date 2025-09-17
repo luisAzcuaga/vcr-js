@@ -71,22 +71,18 @@ export class Cassette {
 
       const isPassThrough = await this.isPassThrough(request);
       if (isPassThrough) {
-        console.log(`[VCR] Request marked as pass-through - letting through`);
         return;
       }
 
       if (this.mode === RecordMode.none) {
-        console.log(`[VCR] Mode: none - attempting playback`);
         return this.playback(request, requestId);
       }
 
       if (this.mode === RecordMode.once) {
-        console.log(`[VCR] Mode: once - ${this.isNew ? 'recording new' : 'playing back'}`);
         return this.recordOnce(request, requestId);
       }
 
       if (this.mode === RecordMode.update) {
-        console.log(`[VCR] Mode: update - checking for existing recording`);
         return this.recordNew(request, requestId);
       }
     });
@@ -97,7 +93,6 @@ export class Cassette {
 
       // Check if this was a playback request - if so, don't record the response
       if (this.playbackRequests.has(requestId)) {
-        console.log(`[VCR] Response for playback request - not recording`);
         this.playbackRequests.delete(requestId);
         return;
       }
@@ -105,11 +100,8 @@ export class Cassette {
 
       const isPassThrough = await this.isPassThrough(req);
       if (isPassThrough) {
-        console.log(`[VCR] Response for pass-through request - not recording`);
         return;
       }
-
-      console.log(`[VCR] Recording response: ${response.status} ${response.statusText}`);
 
       const res: Response = response.clone();
 
