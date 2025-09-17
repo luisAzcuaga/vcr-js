@@ -52,32 +52,34 @@ export class Cassette {
     this.interceptor.apply();
 
     this.interceptor.on('request', async ({ request, requestId }) => {
+      console.log(`[VCR] ${request.method} ${request.url}`);
       this.allRequests.set(requestId, request.clone());
 
-      // Handle CONNECT requests for proxy tunneling
+      // Handle CONNECT requests for proxy tunneling - always pass through
       if (request.method === 'CONNECT') {
-        return request.respondWith(
-          new Response(null, {
-            status: 200,
-            statusText: 'Connection Established'
-          })
-        );
+        console.log(`[VCR] CONNECT request detected - passing through to proxy`);
+        console.log(`[VCR] Target: ${request.headers.get('host') || 'unknown'}`);
+        return; // Let it pass through to the actual proxy
       }
 
       const isPassThrough = await this.isPassThrough(request);
       if (isPassThrough) {
+        console.log(`[VCR] Request marked as pass-through - letting through`);
         return;
       }
 
       if (this.mode === RecordMode.none) {
+        console.log(`[VCR] Mode: none - attempting playback`);
         return this.playback(request);
       }
 
       if (this.mode === RecordMode.once) {
+        console.log(`[VCR] Mode: once - ${this.isNew ? 'recording new' : 'playing back'}`);
         return this.recordOnce(request);
       }
 
       if (this.mode === RecordMode.update) {
+        console.log(`[VCR] Mode: update - checking for existing recording`);
         return this.recordNew(request);
       }
     });
@@ -88,9 +90,12 @@ export class Cassette {
 
       const isPassThrough = await this.isPassThrough(req);
       if (isPassThrough) {
+        console.log(`[VCR] Response for pass-through request - not recording`);
         return;
       }
-      
+
+      console.log(`[VCR] Recording response: ${response.status} ${response.statusText}`);
+
       const res: Response = response.clone();
 
       const httpRequest = requestToHttpRequest(req, await consumeBody(req));
