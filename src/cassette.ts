@@ -21,6 +21,7 @@ export class Cassette {
   private usedInteractions: Set<HttpInteraction> = new Set<HttpInteraction>();
   private newInteractions: Set<HttpInteraction> = new Set<HttpInteraction>();
   private readonly allRequests: Map<string, Request> = new Map<string, Request>();
+  private readonly playbackRequests: Set<string> = new Set<string>();
 
   constructor(
     private readonly storage: ICassetteStorage,
@@ -53,22 +54,36 @@ export class Cassette {
 
     this.interceptor.on('request', async ({ request, requestId }) => {
       this.allRequests.set(requestId, request.clone());
-      
+
+      // Handle CONNECT requests for proxy tunneling - always pass through
+      if (request.method === 'CONNECT') {
+        // Let the request pass through without VCR interference
+        return;
+      }
+
+      // Also detect proxy requests by looking for proxy-related headers
+      const hasProxyAuth = request.headers.has('proxy-authorization');
+      const hasProxyConnection = request.headers.has('proxy-connection');
+
+      if (hasProxyAuth || hasProxyConnection) {
+        return;
+      }
+
       const isPassThrough = await this.isPassThrough(request);
       if (isPassThrough) {
         return;
       }
 
       if (this.mode === RecordMode.none) {
-        return this.playback(request);
+        return this.playback(request, requestId);
       }
 
       if (this.mode === RecordMode.once) {
-        return this.recordOnce(request);
+        return this.recordOnce(request, requestId);
       }
 
       if (this.mode === RecordMode.update) {
-        return this.recordNew(request);
+        return this.recordNew(request, requestId);
       }
     });
 
@@ -76,11 +91,18 @@ export class Cassette {
       const req: Request | undefined = this.allRequests.get(requestId);
       assert.ok(req, `Request with id ${requestId} not found in allRequests map`);
 
+      // Check if this was a playback request - if so, don't record the response
+      if (this.playbackRequests.has(requestId)) {
+        this.playbackRequests.delete(requestId);
+        return;
+      }
+
+
       const isPassThrough = await this.isPassThrough(req);
       if (isPassThrough) {
         return;
       }
-      
+
       const res: Response = response.clone();
 
       const httpRequest = requestToHttpRequest(req, await consumeBody(req));
@@ -99,9 +121,9 @@ export class Cassette {
     });
   }
 
-  private async recordNew(request: any): Promise<void> {
+  private async recordNew(request: any, requestId: string): Promise<void> {
     try {
-      return await this.playback(request);
+      return await this.playback(request, requestId);
     } catch (error) {
       if (error instanceof MatchNotFoundError) {
         this.inProgressCalls++;
@@ -111,15 +133,16 @@ export class Cassette {
     }
   }
 
-  private async recordOnce(request: any): Promise<void> {
+  private async recordOnce(request: any, requestId: string): Promise<void> {
     if (this.isNew) {
       this.inProgressCalls++;
       return;
     }
-    return this.playback(request);
+    return this.playback(request, requestId);
   }
 
-  private async playback(request: any): Promise<void> {
+  private async playback(request: any, requestId: string): Promise<void> {
+    this.playbackRequests.add(requestId);
     const req = request.clone();
     const httpRequest = requestToHttpRequest(req, await consumeBody(req));
     this.masker?.(httpRequest);
