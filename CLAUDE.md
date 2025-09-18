@@ -69,7 +69,7 @@ src/
 
 ## Development Notes
 
-- Uses `@mswjs/interceptors` v0.39.6 for HTTP interception (supports both Node.js http and fetch)
+- Uses `@mswjs/interceptors` v0.25.11 for HTTP interception (supports both Node.js http and fetch)
 - Cassettes stored as human-readable YAML for easy inspection/editing
 - TypeScript compiled to CommonJS in `dist/`
 - Coverage reports generated with tests

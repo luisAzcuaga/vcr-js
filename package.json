@@ -28,7 +28,7 @@
     "vitest": "3.2.4"
   },
   "dependencies": {
-    "@mswjs/interceptors": "git+ssh://git@github.com/luisAzcuaga/interceptors.git#main",
+    "@mswjs/interceptors": "https://github.com/luisAzcuaga/interceptors.git#c8b647c42c0e7c5bee9cc9e340dc96eb130a080e",
     "yaml": "2.8.0"
   },
   "files": [
